@@ -5,6 +5,11 @@
 
 namespace { // anonymous
 
+bool rangeWithin(size_t offset, size_t length, size_t size)
+{
+    return offset <= size && length <= size - offset;
+}
+
 // Magic value used for version 7 little-endian 32-bit Granny files
 constexpr uint8_t LittleEndian32Magic[] = {
     0x29, 0xDE, 0x6C, 0xC0, 0xBA, 0xA4, 0x53, 0x2B,
@@ -761,22 +766,60 @@ GR2FileFormat GR2Reader::readFormat(const GR2Header& header)
 
 void GR2Reader::readHeader()
 {
+    if (!rangeWithin(0, sizeof(GR2Header), m_data.second)) {
+        throw Exception("Invalid GR2 file: truncated header.");
+    }
+
     memcpy(&m_header, m_data.first.get(), sizeof(GR2Header));
     m_format = readFormat(m_header);
 }
 
 void GR2Reader::readSections()
 {
+    if (static_cast<size_t>(m_header.numSections) >
+        std::numeric_limits<size_t>::max() / sizeof(GR2SectionHeader)) {
+        throw Exception("Invalid GR2 file: section count overflow.");
+    }
+    const auto sectionTableSize = static_cast<size_t>(m_header.numSections) * sizeof(GR2SectionHeader);
+    // sectionOffset is relative to the header following the 32-byte magic block.
+    constexpr auto magicSize = offsetof(GR2Header, version);
+    if (!rangeWithin(magicSize, m_header.sectionOffset, m_data.second)) {
+        throw Exception("Invalid GR2 file: section table offset is out of bounds.");
+    }
+    const auto sectionTableOffset = magicSize + static_cast<size_t>(m_header.sectionOffset);
+    if (!rangeWithin(sectionTableOffset, sectionTableSize, m_data.second)) {
+        throw Exception("Invalid GR2 file: truncated section table.");
+    }
+
     m_sectionHeaders = std::vector<GR2SectionHeader>(m_header.numSections);
 
     auto* pbase = m_data.first.get();
-    auto* pdata = pbase + sizeof(GR2Header);
+    auto* pdata = pbase + sectionTableOffset;
 
     auto totalDataSize = 0u;
     for (auto& section : m_sectionHeaders) {
         memcpy(&section, pdata, sizeof(GR2SectionHeader));
         totalDataSize += section.decompressedLen;
         pdata += sizeof(GR2SectionHeader);
+
+        if (!rangeWithin(section.dataOffset, section.compressedLen, m_data.second)) {
+            throw Exception("Invalid GR2 file: section data is out of bounds.");
+        }
+        if (section.compressType == COMPRESSION_NONE &&
+            !rangeWithin(section.dataOffset, section.decompressedLen, m_data.second)) {
+            throw Exception("Invalid GR2 file: uncompressed section data is out of bounds.");
+        }
+        if (section.fixupSize > std::numeric_limits<uint32_t>::max() / sizeof(GR2FixUp)) {
+            throw Exception("Invalid GR2 file: fixup size overflow.");
+        }
+        const auto fixupLength = static_cast<size_t>(section.fixupSize) * sizeof(GR2FixUp);
+        if (section.fixupSize > 0 && !rangeWithin(section.fixupOffset,
+                                                    section.compressType != COMPRESSION_NONE
+                                                        ? sizeof(uint32_t)
+                                                        : fixupLength,
+                                                    m_data.second)) {
+            throw Exception("Invalid GR2 file: fixup data is out of bounds.");
+        }
     }
 
     Stream stream;
@@ -820,6 +863,10 @@ void GR2Reader::readSections()
                 auto compressedFixupSize = *reinterpret_cast<uint32_t*>(fixupData);
 
                 auto* compressedFixupBuffer = fixupData + sizeof(uint32_t);
+                if (!rangeWithin(static_cast<size_t>(section.fixupOffset) + sizeof(uint32_t),
+                                 compressedFixupSize, m_data.second)) {
+                    throw Exception("Invalid GR2 file: compressed fixup data is out of bounds.");
+                }
 
                 auto decompressedFixupSize = static_cast<uint32_t>(section.fixupSize * sizeof(GR2FixUp));
                 auto decompressedFixupBuffer = std::make_unique<uint8_t[]>(decompressedFixupSize);

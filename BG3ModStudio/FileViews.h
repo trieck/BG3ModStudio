@@ -47,7 +47,7 @@ public:
     PVOID CloseFile(int index);
     PVOID CloseOtherFiles(int index);
     PVOID GetData(int index) const;
-    void CloseAllFiles();
+    BOOL CloseAllFiles();
     void SetTitle(const IFileView::Ptr& fileView, LPCTSTR lpstrTitle);
 
 private:

@@ -187,6 +187,10 @@ Stream Stream::makeStream(StreamBase& stream)
 
 Stream Stream::read(size_t bytes)
 {
+    if (m_pos > m_size || bytes > m_size - m_pos) {
+        throw Exception("Unexpected end of stream.");
+    }
+
     auto buf = std::make_unique<char[]>(bytes);
 
     read(buf.get(), bytes);

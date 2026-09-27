@@ -21,6 +21,78 @@ public:
     {
     }
 
+    TEST_METHOD(TestBufferedHeaderRewrite)
+    {
+        auto path = tempFile("fs_header_rewrite.bin");
+        for (size_t length : {100u, 40000u, 100000u}) {
+            std::string expected(length, 'A');
+            expected.replace(4, 4, "HEAD");
+            FileStream fs;
+            fs.open(path.c_str(), "wb");
+            std::string original(length, 'A');
+            fs.write(original.data(), original.size());
+            fs.seek(4, SeekMode::Begin);
+            fs.write("HEAD", 4);
+            fs.close();
+            std::ifstream input(path, std::ios::binary);
+            std::string actual((std::istreambuf_iterator<char>(input)), {});
+            Assert::AreEqual(expected, actual);
+        }
+    }
+
+    TEST_METHOD(TestRelativeSeekBeyondReadBuffer)
+    {
+        auto path = tempFile("fs_relative_seek.bin");
+        {
+            std::ofstream output(path, std::ios::binary);
+            output << std::string(3000000, 'A');
+        }
+        FileStream fs;
+        fs.open(path.c_str(), "rb");
+        char c;
+        fs.read(&c, 1);
+        fs.seek(2000000, SeekMode::Current);
+        Assert::AreEqual<size_t>(2000001, fs.tell());
+        fs.read(&c, 1);
+        fs.seek(-2000000, SeekMode::Current);
+        Assert::AreEqual<size_t>(2, fs.tell());
+    }
+
+    TEST_METHOD(TestCloseReportsWriteFailure)
+    {
+        auto path = tempFile("fs_failed_close.bin");
+        FileStream fs;
+        fs.open(path.c_str(), "wb");
+        ATL::CHandle lock(CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, 0, nullptr));
+        Assert::IsTrue(lock.m_h != INVALID_HANDLE_VALUE);
+        OVERLAPPED overlapped{};
+        Assert::IsTrue(!!LockFileEx(lock, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+            0, 100, 0, &overlapped));
+        fs.write("data", 4);
+        Assert::ExpectException<Exception>([&] { fs.close(); });
+        Assert::IsFalse(fs.isOpen());
+        Assert::AreEqual<uintmax_t>(0, std::filesystem::file_size(path));
+    }
+
+    TEST_METHOD(TestSeekReportsWriteFailure)
+    {
+        auto path = tempFile("fs_failed_seek.bin");
+        FileStream fs;
+        fs.open(path.c_str(), "wb");
+        ATL::CHandle lock(CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, 0, nullptr));
+        OVERLAPPED overlapped{};
+        Assert::IsTrue(!!LockFileEx(lock, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+            0, 100, 0, &overlapped));
+        fs.write("data", 4);
+        Assert::ExpectException<Exception>([&] { fs.seek(0, SeekMode::Begin); });
+        // Destruction must remain non-throwing after an explicit close failure.
+        Assert::ExpectException<Exception>([&] { fs.close(); });
+    }
+
     TEST_METHOD(TestOpenRead)
     {
         auto path = tempFile("fs_open_read.bin");

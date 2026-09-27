@@ -2,7 +2,10 @@
 
 #include <atlcomcli.h>
 #include <CppUnitTest.h>
+#include <limits>
+#include "Exception.h"
 #include "MemStream.h"
+#include "Stream.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -81,6 +84,24 @@ public:
         Assert::IsTrue(SUCCEEDED(hr));
         Assert::AreEqual(static_cast<ULONG>(strlen(text)), read);
         Assert::AreEqual(0, strcmp(text, buffer));
+    }
+
+    TEST_METHOD(TestFixedReadRejectsTruncatedData)
+    {
+        Stream stream("abc", 3);
+
+        Assert::ExpectException<Exception>([&] {
+            stream.read(4);
+        });
+    }
+
+    TEST_METHOD(TestFixedReadRejectsOversizedData)
+    {
+        Stream stream("abc", 3);
+
+        Assert::ExpectException<Exception>([&] {
+            stream.read(std::numeric_limits<size_t>::max());
+        });
     }
 };
 

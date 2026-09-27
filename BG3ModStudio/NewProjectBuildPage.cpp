@@ -145,6 +145,7 @@ DWORD NewProjectBuildPage::BuildProc(LPVOID pv)
     if (!pThis->WriteTemplate(IDR_META_TEMPLATE, templateMap, metaPath)) {
         pThis->m_lastError = Win32ErrorMessage::GetErrorMsg();
         pThis->PostMessage(WM_PROJ_COMPLETE, -1, 0);
+        return 0;
     }
 
     pThis->PostMessage(WM_PROJ_PROGRESS, 10);
@@ -156,6 +157,7 @@ DWORD NewProjectBuildPage::BuildProc(LPVOID pv)
     if (!pThis->WriteTemplate(IDR_LOCA_TEMPLATE, templateMap, locaPath)) {
         pThis->m_lastError = Win32ErrorMessage::GetErrorMsg();
         pThis->PostMessage(WM_PROJ_COMPLETE, -1, 0);
+        return 0;
     }
 
     pThis->PostMessage(WM_PROJ_PROGRESS, 20);
@@ -167,6 +169,7 @@ DWORD NewProjectBuildPage::BuildProc(LPVOID pv)
     if (!pThis->WriteTemplate(IDR_ROOT_TEMPLATES_TEMPLATE, templateMap, rootTemplatesPath)) {
         pThis->m_lastError = Win32ErrorMessage::GetErrorMsg();
         pThis->PostMessage(WM_PROJ_COMPLETE, -1, 0);
+        return 0;
     }
 
     pThis->PostMessage(WM_PROJ_PROGRESS, 30);
@@ -178,6 +181,7 @@ DWORD NewProjectBuildPage::BuildProc(LPVOID pv)
     if (!pThis->WriteTemplate(IDR_TREASURE_TEMPLATE, templateMap, treasureTablePath)) {
         pThis->m_lastError = Win32ErrorMessage::GetErrorMsg();
         pThis->PostMessage(WM_PROJ_COMPLETE, -1, 0);
+        return 0;
     }
 
     pThis->PostMessage(WM_PROJ_PROGRESS, 100);

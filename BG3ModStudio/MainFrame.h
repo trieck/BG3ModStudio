@@ -143,7 +143,8 @@ private:
     BOOL IsLSXSelected() const;
     BOOL IsXmlSelected() const;
     BOOL NewFile(LPNMTVDISPINFO pDispInfo);
-    BOOL OpenFolder(const CString& folder);
+    enum class OpenFolderResult { Opened, Canceled, Failed };
+    OpenFolderResult OpenFolder(const CString& folder);
     BOOL RenameFile(LPNMTVDISPINFO pDispInfo);
     void AddFile(const CString& filename);
     void IterateFiles(HTREEITEM hItem, const FileCallback& callback);

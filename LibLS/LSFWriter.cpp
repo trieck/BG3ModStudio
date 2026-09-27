@@ -281,7 +281,10 @@ void LSFWriter::writeTranslatedFSString(const TranslatedFSStringT& str)
     }
 
     writeStringWithLength(str.handle);
-    m_valueStream.write(str.arguments.size());
+    if (str.arguments.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        throw Exception("Too many translated string arguments.");
+    }
+    m_valueStream.write(static_cast<int32_t>(str.arguments.size()));
 
     for (const auto& arg : str.arguments) {
         writeStringWithLength(arg.key);

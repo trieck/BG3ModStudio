@@ -230,16 +230,51 @@ ByteBuffer PAKReader::readFile(const std::string& name)
 
 bool PAKReader::extractFile(const PackagedFileInfo& file, const char* path)
 {
-    auto [fileData, fileSize] = readFile(file.name);
+    try {
+        auto rootPath = std::filesystem::absolute(std::filesystem::path(path)).lexically_normal();
+        auto outputPath = (rootPath / std::filesystem::path(file.name)).lexically_normal();
+        auto relativePath = std::filesystem::relative(outputPath, rootPath);
 
-    std::filesystem::path outputPath = std::filesystem::path(path) / file.name;
-    create_directories(outputPath.parent_path()); // Ensure parent directories exist
+        if (relativePath.empty() || relativePath.is_absolute() || relativePath == ".." ||
+            relativePath.string().starts_with(".." + std::string(1, std::filesystem::path::preferred_separator))) {
+            return false;
+        }
 
-    FileStream outFile;
-    outFile.open(outputPath.string().c_str(), "wb");
-    outFile.write(fileData.get(), fileSize);
+        auto isReparsePoint = [](const std::filesystem::path& filePath) {
+            const auto attributes = GetFileAttributesA(filePath.string().c_str());
+            return attributes != INVALID_FILE_ATTRIBUTES &&
+                (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+        };
 
-    return true;
+        if (isReparsePoint(rootPath)) {
+            return false;
+        }
+
+        auto currentPath = rootPath;
+        for (const auto& component : relativePath) {
+            currentPath /= component;
+            if (isReparsePoint(currentPath)) {
+                return false;
+            }
+        }
+
+        std::error_code error;
+        std::filesystem::create_directories(outputPath.parent_path(), error);
+        if (error) {
+            return false;
+        }
+
+        auto [fileData, fileSize] = readFile(file.name);
+        FileStream outFile;
+        outFile.open(outputPath.string().c_str(), "wb");
+        if (outFile.write(reinterpret_cast<const char*>(fileData.get()), fileSize) != fileSize) {
+            return false;
+        }
+        outFile.close();
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
 }
 
 bool Package::load(const char* filename)

@@ -161,15 +161,13 @@ BOOL TextFileView::SaveFileAs(const CString& path)
 
     try {
         file.open(strPath, "wb");
+        WriteBOM(file);
+        file.write(contents.GetString(), contents.GetLength());
+        file.close();
     } catch (const Exception& e) {
-        ATLTRACE("Failed to open file: %s\n", e.what());
+        ATLTRACE("Failed to save file: %s\n", e.what());
         return FALSE;
     }
-
-    WriteBOM(file);
-    file.write(contents.GetString(), contents.GetLength());
-
-    file.close();
 
     m_bDirty = FALSE;
 
@@ -391,6 +389,7 @@ BOOL TextFileView::ReplaceAll(LPFINDREPLACE_PARAMS params)
 
     auto count = 0;
     while (FindText(params, ttf)) {
+        const bool emptyMatch = ttf.chrgText.cpMin == ttf.chrgText.cpMax;
         // Replace the target (Scintilla uses target range for replacement)
         m_edit.SetTargetStart(ttf.chrgText.cpMin);
         m_edit.SetTargetEnd(ttf.chrgText.cpMax);
@@ -400,6 +399,14 @@ BOOL TextFileView::ReplaceAll(LPFINDREPLACE_PARAMS params)
         ttf.chrg.cpMin = m_edit.GetTargetEnd();
         ttf.chrg.cpMax = m_edit.GetTextLength();
         count++;
+        if (emptyMatch) {
+            if (ttf.chrg.cpMin >= ttf.chrg.cpMax) {
+                break;
+            }
+            // Advance by one whole character, including in UTF-8 documents.
+            ttf.chrg.cpMin = static_cast<decltype(ttf.chrg.cpMin)>(
+                m_edit.SendMessage(SCI_POSITIONAFTER, ttf.chrg.cpMin));
+        }
     }
 
     m_edit.EndUndoAction();

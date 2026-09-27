@@ -2,7 +2,7 @@
 
 #define APP_VERSION_MAJOR 1
 #define APP_VERSION_MINOR 0
-#define APP_VERSION_PATCH 12
+#define APP_VERSION_PATCH 13
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)

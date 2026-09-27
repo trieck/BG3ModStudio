@@ -36,6 +36,7 @@ public:
     bool flush();
 
 private:
+    void closeNoThrow() noexcept;
     bool readBlock();
     bool writeBlock();
     uint64_t logicalPos() const;

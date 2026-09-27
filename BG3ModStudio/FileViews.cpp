@@ -152,9 +152,7 @@ PVOID FilesView::CloseFile(int index)
         }
 
         if (result == IDYES) {
-            if (!fileView->SaveFile()) {
-                message.Format(L"Unable to save file \"%s\".", fileView->GetPath());
-                AtlMessageBox(*this, static_cast<LPCWSTR>(message), nullptr, MB_ICONERROR);
+            if (!SaveFile(fileView)) {
                 return nullptr;
             }
         }
@@ -220,11 +218,16 @@ PVOID FilesView::CloseOtherFiles(int index)
     return hItem;
 }
 
-void FilesView::CloseAllFiles()
+BOOL FilesView::CloseAllFiles()
 {
     for (auto i = GetPageCount() - 1; i >= 0; --i) {
+        auto before = GetPageCount();
         CloseFile(i);
+        if (GetPageCount() == before) {
+            return FALSE;
+        }
     }
+    return TRUE;
 }
 
 PVOID FilesView::CloseActiveFile()

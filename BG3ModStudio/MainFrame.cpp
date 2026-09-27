@@ -148,10 +148,11 @@ void MainFrame::OnFolderOpen()
 
 void MainFrame::OnFolderClose()
 {
+    if (!m_filesView.CloseAllFiles()) {
+        return;
+    }
     m_folderView.DeleteAllItems();
     m_folderView.RedrawWindow();
-
-    m_filesView.CloseAllFiles();
 
     UpdateTitle();
 }
@@ -606,8 +607,8 @@ void MainFrame::OnClose()
 {
     m_mru.WriteToRegistry(REGISTRY_KEY);
 
-    if (m_filesView.IsWindow()) {
-        m_filesView.CloseAllFiles();
+    if (m_filesView.IsWindow() && !m_filesView.CloseAllFiles()) {
+        return;
     }
 
     if (m_folderView.IsWindow()) {
@@ -1166,15 +1167,20 @@ void MainFrame::IterateFiles(HTREEITEM hItem, const FileCallback& callback)
     } while (hItem);
 }
 
-BOOL MainFrame::OpenFolder(const CString& folder)
+MainFrame::OpenFolderResult MainFrame::OpenFolder(const CString& folder)
 {
-    auto hr = SHParseDisplayName(folder, nullptr, m_rootPIDL.put(), 0, nullptr);
+    PIDL destination;
+    auto hr = SHParseDisplayName(folder, nullptr, destination.put(), 0, nullptr);
     if (FAILED(hr)) {
         CoMessageBox(*this, hr, nullptr, _T("Error"), MB_ICONERROR);
-        return FALSE;
+        return OpenFolderResult::Failed;
     }
 
-    m_filesView.CloseAllFiles();
+    if (!m_filesView.CloseAllFiles()) {
+        return OpenFolderResult::Canceled;
+    }
+
+    m_rootPIDL = std::move(destination);
     m_folderView.SetFolder(folder);
 
     UpdateTitle();
@@ -1189,7 +1195,7 @@ BOOL MainFrame::OpenFolder(const CString& folder)
 
     m_mru.AddToList(folder);
 
-    return TRUE;
+    return OpenFolderResult::Opened;
 }
 
 void MainFrame::OnViewStatusBar()
@@ -1208,7 +1214,7 @@ void MainFrame::OnMRUMenuItem(UINT /*uCode*/, int nID, HWND /*hwndCtrl*/)
         return;
     }
 
-    if (!OpenFolder(folder)) {
+    if (OpenFolder(folder) == OpenFolderResult::Failed) {
         m_mru.RemoveFromList(nID);
     }
 }

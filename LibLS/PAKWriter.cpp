@@ -47,6 +47,7 @@ void PAKWriter::write()
 
     header = LSPKHeader16::fromCommon(m_metadata);
     m_stream.write<LSPKHeader16>(header);
+    m_stream.close();
 }
 
 void PAKWriter::writeCompressedFileList(const std::vector<PackagedFileInfoCommon>& files)

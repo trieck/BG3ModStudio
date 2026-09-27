@@ -293,23 +293,43 @@ TranslatedFSStringT LSFReader::readTranslatedFSString(Stream& stream) const
     } else {
         str.version = 0;
         auto valueLength = stream.read<int32_t>();
-        str.value = stream.read(valueLength).str();
+        if (valueLength < 0) {
+            throw Exception("Invalid translated string value length.");
+        }
+        str.value = readString(stream, valueLength);
     }
 
     auto handleLength = stream.read<int32_t>();
-    str.handle = stream.read(handleLength).str();
+    if (handleLength < 0) {
+        throw Exception("Invalid translated string handle length.");
+    }
+    str.handle = readString(stream, handleLength);
 
     auto numArgs = stream.read<int32_t>();
-    str.arguments.reserve(numArgs);
+    if (numArgs < 0) {
+        throw Exception("Invalid translated string argument count.");
+    }
+    constexpr auto minimumArgumentSize = sizeof(int32_t) * 4 + sizeof(uint16_t);
+    if (stream.tell() > stream.size() ||
+        static_cast<size_t>(numArgs) > (stream.size() - stream.tell()) / minimumArgumentSize) {
+        throw Exception("Invalid translated string argument count.");
+    }
+    str.arguments.resize(static_cast<size_t>(numArgs));
 
     for (auto i = 0; i < numArgs; ++i) {
         TranslatedFSStringArgument arg;
         auto keyLength = stream.read<int32_t>();
-        arg.key = stream.read(keyLength).str();
+        if (keyLength < 0) {
+            throw Exception("Invalid translated string argument key length.");
+        }
+        arg.key = readString(stream, keyLength);
         arg.string = std::make_shared<TranslatedFSStringT>(readTranslatedFSString(stream));
 
         auto valueLength = stream.read<int32_t>();
-        arg.value = stream.read(valueLength).str();
+        if (valueLength < 0) {
+            throw Exception("Invalid translated string argument value length.");
+        }
+        arg.value = readString(stream, valueLength);
         str.arguments[i] = arg;
     }
 

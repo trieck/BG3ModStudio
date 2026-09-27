@@ -13,10 +13,10 @@ FileStream::FileStream() :
 
 FileStream::~FileStream()
 {
-    close();
+    closeNoThrow();
 }
 
-FileStream::FileStream(FileStream&& rhs) noexcept
+FileStream::FileStream(FileStream&& rhs) noexcept : m_file(INVALID_HANDLE_VALUE)
 {
     *this = std::move(rhs);
 }
@@ -24,7 +24,7 @@ FileStream::FileStream(FileStream&& rhs) noexcept
 FileStream& FileStream::operator=(FileStream&& rhs) noexcept
 {
     if (this != &rhs) {
-        close();
+        closeNoThrow();
         m_file = rhs.m_file;
         m_buf = std::move(rhs.m_buf);
         m_pbuf = rhs.m_pbuf;
@@ -87,9 +87,14 @@ void FileStream::open(const char* path, const char* mode)
 
 void FileStream::close()
 {
+    DWORD error = ERROR_SUCCESS;
     if (m_file != INVALID_HANDLE_VALUE) {
-        flush();
-        FlushFileBuffers(m_file);
+        if (!flush()) {
+            error = GetLastError();
+            if (error == ERROR_SUCCESS) error = ERROR_WRITE_FAULT;
+        } else if ((m_access & GENERIC_WRITE) && !FlushFileBuffers(m_file)) {
+            error = GetLastError();
+        }
         CloseHandle(m_file);
         m_file = INVALID_HANDLE_VALUE;
     }
@@ -102,6 +107,19 @@ void FileStream::close()
     m_access = 0;
     m_shareMode = 0;
     m_creation = 0;
+
+    if (error != ERROR_SUCCESS) {
+        throw Exception(error);
+    }
+}
+
+void FileStream::closeNoThrow() noexcept
+{
+    try {
+        close();
+    } catch (...) {
+        // Explicit close reports save failures; destruction must not throw.
+    }
 }
 
 void FileStream::write(StreamBase& stream)
@@ -196,6 +214,10 @@ size_t FileStream::write(const char* buf, size_t size)
 
 void FileStream::seek(int64_t offset, SeekMode mode)
 {
+    // Write buffers contain pending bytes, not unread bytes. Flush before seeking.
+    if ((m_access & GENERIC_WRITE) && !flush()) {
+        throw Exception("Failed to flush write buffer before seeking.");
+    }
     auto curOffset = m_pbuf - m_buf.get();
     auto curPos = m_fileBase + curOffset;
     auto bufEnd = m_fileBase + curOffset + m_nRemaining;
@@ -231,13 +253,13 @@ void FileStream::seek(int64_t offset, SeekMode mode)
         return;
     }
 
-    flush();
-
     LARGE_INTEGER li{}, pos{};
-    li.QuadPart = offset;
+    // The OS read position is ahead of tell() due to read-ahead buffering.
+    li.QuadPart = mode == SeekMode::Current ? static_cast<int64_t>(curPos) + offset : offset;
+    auto origin = mode == SeekMode::Current ? FILE_BEGIN : static_cast<DWORD>(mode);
 
     // Perform actual seek
-    auto result = SetFilePointerEx(m_file, li, &pos, static_cast<DWORD>(mode));
+    auto result = SetFilePointerEx(m_file, li, &pos, origin);
     if (!result) {
         throw Exception(GetLastError());
     }
@@ -338,6 +360,11 @@ bool FileStream::writeBlock()
             static_cast<DWORD>(m_nRemaining - totalWritten),
             &written,
             nullptr)) {
+            return false;
+        }
+
+        if (written == 0) {
+            SetLastError(ERROR_WRITE_FAULT);
             return false;
         }
 
