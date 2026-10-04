@@ -140,12 +140,6 @@
     <ClInclude Include="COMError.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ShellNotifyRegistrar.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PIDL.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="PakExplorerDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -222,6 +216,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DatabaseFormView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FolderMonitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -319,12 +316,6 @@
     <ClCompile Include="COMError.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ShellNotifyRegistrar.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="PIDL.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PakExplorerDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -395,6 +386,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DatabaseFormView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FolderMonitor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

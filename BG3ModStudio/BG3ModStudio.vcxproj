@@ -222,6 +222,7 @@
     <ClInclude Include="FileOperation.h" />
     <ClInclude Include="FileViewContainer.h" />
     <ClInclude Include="FindReplaceDlg.h" />
+    <ClInclude Include="FolderMonitor.h" />
     <ClInclude Include="FormatToken.h" />
     <ClInclude Include="FormView.h" />
     <ClInclude Include="FormViewContainer.h" />
@@ -252,7 +253,6 @@
     <ClInclude Include="PAKWizFilePage.h" />
     <ClInclude Include="PAKWizSheet.h" />
     <ClInclude Include="PAKWizWelcomePage.h" />
-    <ClInclude Include="PIDL.h" />
     <ClInclude Include="ResourceHelper.h" />
     <ClInclude Include="ScintillaCtrl.h" />
     <ClInclude Include="ScintillaLoader.h" />
@@ -267,7 +267,6 @@
     <ClInclude Include="resources\resource.h" />
     <ClInclude Include="SettingsDlg.h" />
     <ClInclude Include="ShellHelper.h" />
-    <ClInclude Include="ShellNotifyRegistrar.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="TabViewCtrl.h" />
     <ClInclude Include="TabViewImpl.h" />
@@ -294,6 +293,7 @@
     <ClCompile Include="FileOperation.cpp" />
     <ClCompile Include="FileViewContainer.cpp" />
     <ClCompile Include="FindReplaceDlg.cpp" />
+    <ClCompile Include="FolderMonitor.cpp" />
     <ClCompile Include="FormViewContainer.cpp" />
     <ClCompile Include="FunctionFormView.cpp" />
     <ClCompile Include="GameObjectDlg.cpp" />
@@ -325,7 +325,6 @@
     <ClCompile Include="PAKWizFilePage.cpp" />
     <ClCompile Include="PAKWizSheet.cpp" />
     <ClCompile Include="PAKWizWelcomePage.cpp" />
-    <ClCompile Include="PIDL.cpp" />
     <ClCompile Include="ResourceHelper.cpp" />
     <ClCompile Include="TypeFormView.cpp" />
     <ClCompile Include="ValueViewDlg.cpp" />
@@ -333,7 +332,6 @@
     <ClCompile Include="SearchDlg.cpp" />
     <ClCompile Include="SettingsDlg.cpp" />
     <ClCompile Include="ShellHelper.cpp" />
-    <ClCompile Include="ShellNotifyRegistrar.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

@@ -1,11 +1,10 @@
 #pragma once
 
 #include "FileViews.h"
+#include "FolderMonitor.h"
 #include "FolderView.h"
-#include "PIDL.h"
 #include "resources/resource.h"
 #include "resources/ribbon.h"
-#include "ShellNotifyRegistrar.h"
 
 class MainFrame : public CRibbonFrameWindowImpl<MainFrame>,
     public CMessageFilter,
@@ -148,7 +147,7 @@ private:
     BOOL RenameFile(LPNMTVDISPINFO pDispInfo);
     void AddFile(const CString& filename);
     void IterateFiles(HTREEITEM hItem, const FileCallback& callback);
-    void ProcessFileChange(LONG event, PIDLIST_ABSOLUTE* pidls);
+    void ProcessFileChange(DWORD action, const CString& filename);
     void RemoveFile(const CString& filename);
     void RenameFile(const CString& oldname, const CString& newname);
     void UpdateEncodingStatus(FileEncoding encoding);
@@ -161,6 +160,6 @@ private:
     CStatusBarCtrl m_statusBar;
     FilesView m_filesView{};
     FolderView m_folderView{};
-    PIDL m_rootPIDL;
-    ShellNotifyRegistration m_notify;
+    std::unique_ptr<FolderMonitor> m_folderMonitor;
+    CString m_pendingRename;
 };

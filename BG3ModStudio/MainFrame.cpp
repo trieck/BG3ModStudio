@@ -151,6 +151,8 @@ void MainFrame::OnFolderClose()
     if (!m_filesView.CloseAllFiles()) {
         return;
     }
+    m_folderMonitor.reset();
+    m_pendingRename.Empty();
     m_folderView.DeleteAllItems();
     m_folderView.RedrawWindow();
 
@@ -605,6 +607,8 @@ void MainFrame::OnDatabase()
 
 void MainFrame::OnClose()
 {
+    m_folderMonitor.reset();
+
     m_mru.WriteToRegistry(REGISTRY_KEY);
 
     if (m_filesView.IsWindow() && !m_filesView.CloseAllFiles()) {
@@ -787,16 +791,13 @@ LRESULT MainFrame::OnRClick(LPNMHDR pnmh)
 
 void MainFrame::OnFileChanged(WPARAM wParam, LPARAM lParam)
 {
-    PIDLIST_ABSOLUTE* pidls;
-    LONG event;
-    auto hLock = SHChangeNotification_Lock(
-        reinterpret_cast<HANDLE>(wParam), static_cast<DWORD>(lParam),
-        &pidls, &event);
-
-    if (hLock) {
-        ProcessFileChange(event, pidls);
-        SHChangeNotification_Unlock(hLock);
+    auto* notification = reinterpret_cast<FileChangeNotification*>(lParam);
+    if (notification == nullptr) {
+        return;
     }
+
+    ProcessFileChange(notification->action, notification->path);
+    delete notification;
 }
 
 BOOL MainFrame::HasEditableView() const
@@ -830,46 +831,27 @@ BOOL MainFrame::IsDialogMessage(PMSG pMsg)
     return ::IsDialogMessage(hRoot, pMsg);
 }
 
-void MainFrame::ProcessFileChange(LONG event, PIDLIST_ABSOLUTE* pidls)
+void MainFrame::ProcessFileChange(DWORD action, const CString& filename)
 {
     if (!m_folderView.IsWindow()) {
         return;
     }
 
-    auto PidlToString = [](PCIDLIST_ABSOLUTE pidl) -> CString {
-        if (!pidl) {
-            return {};
-        }
-
-        PWSTR p = nullptr;
-        auto hr = SHGetNameFromIDList(pidl, SIGDN_FILESYSPATH, &p);
-        if (FAILED(hr)) {
-            return {};
-        }
-
-        CString s(p);
-
-        CoTaskMemFree(p);
-
-        return s;
-    };
-
-    CString oldPath, newPath;
-    oldPath = PidlToString(pidls[0]);
-
-    switch (event) {
-    case SHCNE_CREATE:
-    case SHCNE_MKDIR:
-        AddFile(oldPath);
+    switch (action) {
+    case FILE_ACTION_ADDED:
+        AddFile(filename);
         break;
-    case SHCNE_DELETE:
-    case SHCNE_RMDIR:
-        RemoveFile(oldPath);
+    case FILE_ACTION_REMOVED:
+        RemoveFile(filename);
         break;
-    case SHCNE_RENAMEITEM:
-    case SHCNE_RENAMEFOLDER:
-        newPath = PidlToString(pidls[1]);
-        RenameFile(oldPath, newPath);
+    case FILE_ACTION_RENAMED_OLD_NAME:
+        m_pendingRename = filename;
+        break;
+    case FILE_ACTION_RENAMED_NEW_NAME:
+        if (!m_pendingRename.IsEmpty()) {
+            RenameFile(m_pendingRename, filename);
+            m_pendingRename.Empty();
+        }
         break;
     default:
         break;
@@ -1169,29 +1151,24 @@ void MainFrame::IterateFiles(HTREEITEM hItem, const FileCallback& callback)
 
 MainFrame::OpenFolderResult MainFrame::OpenFolder(const CString& folder)
 {
-    PIDL destination;
-    auto hr = SHParseDisplayName(folder, nullptr, destination.put(), 0, nullptr);
-    if (FAILED(hr)) {
-        CoMessageBox(*this, hr, nullptr, _T("Error"), MB_ICONERROR);
-        return OpenFolderResult::Failed;
-    }
-
     if (!m_filesView.CloseAllFiles()) {
         return OpenFolderResult::Canceled;
     }
 
-    m_rootPIDL = std::move(destination);
+    m_folderMonitor.reset();
+    m_pendingRename.Empty();
     m_folderView.SetFolder(folder);
 
     UpdateTitle();
 
-    SHChangeNotifyEntry entry{m_rootPIDL.get(), TRUE};
-    m_notify.reset(SHChangeNotifyRegister(
-        m_hWnd,
-        SHCNRF_ShellLevel | SHCNRF_InterruptLevel | SHCNRF_NewDelivery,
-        SHCNE_DISKEVENTS,
-        WM_FILE_CHANGED,
-        1, &entry));
+    m_folderMonitor = std::make_unique<FolderMonitor>(m_hWnd, folder);
+    if (!m_folderMonitor->Start()) {
+        m_folderMonitor.reset();
+        m_folderView.DeleteAllItems();
+        UpdateTitle();
+        AtlMessageBox(*this, L"Unable to monitor the selected folder.", nullptr, MB_ICONERROR);
+        return OpenFolderResult::Failed;
+    }
 
     m_mru.AddToList(folder);
 
